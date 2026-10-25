@@ -640,8 +640,8 @@
                     '<div class="detail-box"><div class="label">📊 Columna</div><div class="value">' + r.colNombre + '</div></div>' +
                     '<div class="detail-box"><div class="label">📍 Fila</div><div class="value">' + r.filaNum + '</div></div>' +
                     '</div>' +
-                    '<button class="btn-found" id="btnf-' + i + '"' onclick="eliminarCelda(\'' + r.colLetra + '\',' + r.filaNum + ',' + i + ')">' +
-                    '✅ ENCONTRADO - Borrar Celda</button></div>';
+                    '<button class="btn-found" id="btnf-' + i + '" onclick="eliminarFila(' + r.filaNum + ',' + i + ')">' +
+                    '✅ ENCONTRADO - Eliminar Fila ' + r.filaNum + '</button></div>';
             });
 
             container.innerHTML = html;
@@ -650,110 +650,47 @@
         }
 
         // ==================== ELIMINAR ====================
-   async function eliminarCelda(columna, fila, cardIdx) {
+        async function eliminarFila(filaNum, cardIdx) {
+            const btn = document.getElementById('btnf-' + cardIdx);
+            btn.disabled = true;
+            btn.classList.add('deleting');
+            btn.innerHTML = '<span class="spinner"></span> Eliminando...';
+            log('Eliminando fila ' + filaNum + '...', 'info');
 
-    const btn = document.getElementById('btnf-' + cardIdx);
+            try {
+                const result = await jsonpRequest(scriptUrl, {
+                    action: 'delete',
+                    sheet: sheetName,
+                    row: filaNum
+                });
 
-    btn.disabled = true;
-    btn.classList.add('deleting');
+                log('Respuesta eliminación: ' + JSON.stringify(result), 'info');
 
-    btn.innerHTML =
-        '<span class="spinner"></span> Borrando Celda...';
-
-    log(
-        'Borrando celda ' +
-        columna + fila,
-        'info'
-    );
-
-    try {
-
-        const result = await jsonpRequest(
-            scriptUrl,
-            {
-                action: 'clearCell',
-                sheet: sheetName,
-                cell: columna + fila
-            }
-        );
-
-        if (result && result.success) {
-
-            const card =
-                document.getElementById(
-                    'card-' + cardIdx
-                );
-
-            card.style.transition =
-                'all 0.5s';
-
-            card.style.opacity = '0';
-
-            card.style.transform =
-                'translateX(80px)';
-
-            setTimeout(() => {
-
-                card.remove();
-
-                if (
-                    document.getElementById(
-                        'resultsContainer'
-                    ).children.length === 0
-                ) {
-                    document.getElementById(
-                        'resultsSection'
-                    ).style.display = 'none';
+                if (result && result.success) {
+                    const card = document.getElementById('card-' + cardIdx);
+                    card.style.transition = 'all 0.5s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(80px)';
+                    setTimeout(() => {
+                        card.remove();
+                        if (document.getElementById('resultsContainer').children.length === 0) {
+                            document.getElementById('resultsSection').style.display = 'none';
+                        }
+                        cargarDatos();
+                    }, 500);
+                    showMsg('✅ Fila ' + filaNum + ' eliminada', 'ok');
+                    log('Fila ' + filaNum + ' eliminada correctamente', 'ok');
+                } else {
+                    throw new Error((result && result.error) || 'Error desconocido');
                 }
-
-                cargarDatos();
-
-            }, 500);
-
-            showMsg(
-                '✅ Celda ' +
-                columna + fila +
-                ' borrada',
-                'ok'
-            );
-
-            log(
-                'Celda ' +
-                columna + fila +
-                ' borrada',
-                'ok'
-            );
-
-        } else {
-
-            throw new Error(
-                (result && result.error)
-                || 'Error desconocido'
-            );
-
+            } catch (err) {
+                btn.disabled = false;
+                btn.classList.remove('deleting');
+                btn.innerHTML = '✅ ENCONTRADO - Eliminar Fila ' + filaNum;
+                showMsg('❌ Error al eliminar: ' + err.message, 'err');
+                log('Error eliminando: ' + err.message, 'err');
+            }
         }
-
-    } catch(err) {
-
-        btn.disabled = false;
-
-        btn.classList.remove('deleting');
-
-        btn.innerHTML =
-            '✅ ENCONTRADO - Borrar Celda';
-
-        showMsg(
-            '❌ ' + err.message,
-            'err'
-        );
-
-        log(
-            err.message,
-            'err'
-        );
-
-    }
-}
 
         // ==================== UI HELPERS ====================
         function showStatus(texto, tipo) {
