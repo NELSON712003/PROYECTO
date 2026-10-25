@@ -654,50 +654,69 @@
         }
 
         // ==================== BORRAR CELDA (NUEVA FUNCIÓN) ====================
-        async function borrarCelda(filaNum, colIdx, cardIdx) {
-            const btn = document.getElementById('btnf-' + cardIdx);
-            btn.disabled = true;
-            btn.classList.add('deleting');
-            btn.innerHTML = '<span class="spinner"></span> Borrando celda...';
-            log('Borrando celda: fila=' + filaNum + ', colIdx=' + colIdx, 'info');
+       async function borrarCelda(filaNum, colIdx, cardIdx) {
+    const btn = document.getElementById('btnf-' + cardIdx);
+    btn.disabled = true;
+    btn.classList.add('deleting');
+    btn.innerHTML = '<span class="spinner"></span> Borrando celda...';
+    
+    // Calcular referencia de celda para mostrar
+    const colLetraRef = colLetra(colIdx);
+    const cellRef = colLetraRef + filaNum;
+    
+    log('>>> BORRAR CELDA: fila=' + filaNum + ', colIdx=' + colIdx + ', colLetra=' + colLetraRef + ', cellRef=' + cellRef, 'info');
+    log('>>> scriptUrl=' + scriptUrl, 'info');
 
-            try {
-                const result = await jsonpRequest(scriptUrl, {
-                    action: 'clearCell',     // <-- nueva acción
-                    sheet: sheetName,
-                    row: filaNum,
-                    col: colIdx + 1          // Google Sheets usa índice 1-based
-                });
+    try {
+        const params = {
+            action: 'clearCell',
+            sheet: sheetName,
+            row: filaNum,
+            col: colIdx + 1  // Google Sheets usa índice 1-based
+        };
+        
+        log('>>> Enviando params: ' + JSON.stringify(params), 'info');
 
-                log('Respuesta del servidor: ' + JSON.stringify(result), 'info');
+        const result = await jsonpRequest(scriptUrl, params);
 
-                if (result && result.success) {
-                    const card = document.getElementById('card-' + cardIdx);
-                    card.style.transition = 'all 0.5s';
-                    card.style.opacity = '0';
-                    card.style.transform = 'translateX(80px)';
-                    setTimeout(() => {
-                        card.remove();
-                        if (document.getElementById('resultsContainer').children.length === 0) {
-                            document.getElementById('resultsSection').style.display = 'none';
-                        }
-                        // Recargar datos para reflejar el cambio
-                        cargarDatos();
-                    }, 500);
-                    showMsg('✅ Celda borrada correctamente', 'ok');
-                    log('Celda borrada exitosamente', 'ok');
-                } else {
-                    throw new Error((result && result.error) || 'Error desconocido');
+        log('>>> Respuesta del servidor: ' + JSON.stringify(result), 'info');
+
+        if (result && result.success) {
+            const card = document.getElementById('card-' + cardIdx);
+            card.style.transition = 'all 0.5s';
+            card.style.opacity = '0';
+            card.style.transform = 'translateX(80px)';
+            setTimeout(() => {
+                card.remove();
+                if (document.getElementById('resultsContainer').children.length === 0) {
+                    document.getElementById('resultsSection').style.display = 'none';
                 }
-            } catch (err) {
-                btn.disabled = false;
-                btn.classList.remove('deleting');
-                btn.innerHTML = '✅ ENCONTRADO - Borrar Celda';
-                showMsg('❌ Error al borrar: ' + err.message, 'err');
-                log('Error borrando celda: ' + err.message, 'err');
-            }
+                // Recargar datos para reflejar el cambio
+                cargarDatos();
+            }, 500);
+            showMsg('✅ Celda ' + cellRef + ' borrada correctamente', 'ok');
+            log('>>> ÉXITO: Celda ' + cellRef + ' borrada', 'ok');
+        } else {
+            throw new Error((result && result.error) || 'Respuesta sin success');
         }
-
+    } catch (err) {
+        btn.disabled = false;
+        btn.classList.remove('deleting');
+        btn.innerHTML = '✅ ENCONTRADO - Borrar Celda ' + cellRef;
+        showMsg('❌ Error al borrar ' + cellRef + ': ' + err.message, 'err');
+        log('>>> ERROR: ' + err.message, 'err');
+    }
+}
+Y asegúrate de que esta función colLetra esté en tu JavaScript del frontend (si no la tienes, agrégala):
+JavaScript
+function colLetra(i) {
+    let l = '';
+    while (i >= 0) { 
+        l = String.fromCharCode(65 + (i % 26)) + l; 
+        i = Math.floor(i / 26) - 1; 
+    }
+    return l;
+}
         // ==================== UI HELPERS ====================
         function showStatus(texto, tipo) {
             const bar = document.getElementById('statusBar');
