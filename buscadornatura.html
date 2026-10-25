@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Buscador por Voz - Google Sheets</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 8px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            color: #a0aec0;
+            font-size: 0.95rem;
+        }
+
+        /* ===== CONFIGURACIÓN ===== */
+        .config-panel {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .config-panel h3 {
+            font-size: 1rem;
+            margin-bottom: 15px;
+            color: #63b3ed;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .input-group {
+            margin-bottom: 12px;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 0.85rem;
+            color: #cbd5e0;
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.25);
+            color: #fff;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #63b3ed;
+            background: rgba(0,0,0,0.35);
+        }
+
+        .input-group input::placeholder {
+            color: #718096;
+        }
+
+        .btn-config {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 5px;
+        }
+
+        .btn-config:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(66,153,225,0.4);
+        }
+
+        /* ===== ESTADO ===== */
+        .status-bar {
+            text-align: center;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            transition: all 0.3s;
+        }
+
+        .status-bar.idle {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #a0aec0;
+        }
+
+        .status-bar.listening {
+            background: rgba(245,101,101,0.2);
+            border: 1px solid rgba(245,101,101,0.4);
+            color: #feb2b2;
+            animation: pulse-red 1.5s infinite;
+        }
+
+        .status-bar.success {
+            background: rgba(72,187,120,0.2);
+            border: 1px solid rgba(72,187,120,0.4);
+            color: #9ae6b4;
+        }
+
+        .status-bar.error {
+            background: rgba(245,101,101,0.2);
+            border: 1px solid rgba(245,101,101,0.4);
+            color: #feb2b2;
+        }
+
+        @keyframes pulse-red {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* ===== BOTÓN MICRÓFONO ===== */
+        .mic-section {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .btn-mic {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 25px rgba(229,62,62,0.4);
+            position: relative;
+        }
+
+        .btn-mic:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 35px rgba(229,62,62,0.5);
+        }
+
+        .btn-mic.listening {
+            animation: mic-pulse 1s infinite;
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            box-shadow: 0 5px 25px rgba(56,161,105,0.4);
+        }
+
+        @keyframes mic-pulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 5px 25px rgba(56,161,105,0.4); }
+            50% { transform: scale(1.1); box-shadow: 0 5px 40px rgba(56,161,105,0.6); }
+        }
+
+        .mic-label {
+            margin-top: 12px;
+            color: #a0aec0;
+            font-size: 0.9rem;
+        }
+
+        /* ===== BÚSQUEDA MANUAL ===== */
+        .search-section {
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .search-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .search-row input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-radius: 12px;
+            background: rgba(0,0,0,0.25);
+            color: #fff;
+            font-size: 1.1rem;
+        }
+
+        .search-row input:focus {
+            outline: none;
+            border-color: #63b3ed;
+        }
+
+        .search-row input::placeholder {
+            color: #718096;
+        }
+
+        .btn-search {
+            padding: 14px 24px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #805ad5, #6b46c1);
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .btn-search:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(128,90,213,0.4);
+        }
+
+        /* ===== RESULTADOS ===== */
+        .results-section {
+            margin-bottom: 20px;
+        }
+
+        .results-section h3 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            color: #e2e8f0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .result-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 15px;
+            animation: slideUp 0.4s ease;
+            transition: all 0.3s;
+        }
+
+        .result-card:hover {
+            border-color: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .result-number {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #fbd38d;
+            letter-spacing: 1px;
+        }
+
+        .result-match-type {
+            font-size: 0.75rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(251,211,141,0.15);
+            color: #fbd38d;
+        }
+
+        .result-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .detail-box {
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .detail-box .label {
+            font-size: 0.75rem;
+            color: #a0aec0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .detail-box .value {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #63b3ed;
+        }
+
+        .btn-found {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            color: white;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-found:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(56,161,105,0.4);
+        }
+
+        .btn-found:disabled {
+            background: #4a5568;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-found.deleting {
+            background: linear-gradient(135deg, #dd6b20, #c05621);
+        }
+
+        /* ===== MENSAJES ===== */
+        .msg-box {
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: 600;
+            display: none;
+        }
+
+        .msg-box.show {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .msg-success {
+            background: rgba(72,187,120,0.2);
+            border: 1px solid rgba(72,187,120,0.4);
+            color: #9ae6b4;
+        }
+
+        .msg-error {
+            background: rgba(245,101,101,0.2);
+            border: 1px solid rgba(245,101,101,0.4);
+            color: #feb2b2;
+        }
+
+        .msg-info {
+            background: rgba(66,153,225,0.2);
+            border: 1px solid rgba(66,153,225,0.4);
+            color: #90cdf4;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        /* ===== RESPONSIVE ===== */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            .result-details {
+                grid-template-columns: 1fr;
+            }
+            .search-row {
+                flex-direction: column;
+            }
+            .btn-search {
+                width: 100%;
+            }
+        }
+
+        /* ===== SPINNER ===== */
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+
+        .no-results-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+    </style>
+<base target="_blank">
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <h1>🔍 Buscador por Voz</h1>
+            <p>Busca números en Google Sheets usando tu voz o texto</p>
+        </div>
+
+        <!-- CONFIGURACIÓN -->
+        <div class="config-panel">
+            <h3>⚙️ Configuración</h3>
+            <div class="input-group">
+                <label>🔗 URL del Script de Google Apps:</label>
+                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/.../exec">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="input-group">
+                    <label>📄 Nombre de la Hoja:</label>
+                    <input type="text" id="sheetName" value="Hoja1" placeholder="Ej: Hoja1">
+                </div>
+                <div class="input-group">
+                    <label>📊 Rango de Búsqueda:</label>
+                    <input type="text" id="rangeName" value="A:Z" placeholder="Ej: A:Z o Datos">
+                </div>
+            </div>
+            <button class="btn-config" onclick="cargarDatos()">
+                📥 CARGAR DATOS DE LA HOJA
+            </button>
+        </div>
+
+        <!-- ESTADO -->
+        <div id="statusBar" class="status-bar idle">
+            🎤 Presiona el micrófono y di un número para buscar
+        </div>
+
+        <!-- MENSAJES -->
+        <div id="msgBox" class="msg-box"></div>
+
+        <!-- MICRÓFONO -->
+        <div class="mic-section">
+            <button id="btnMic" class="btn-mic" onclick="toggleVoice()" title="Presiona para hablar">
+                🎤
+            </button>
+            <div class="mic-label" id="micLabel">Toca el micrófono y di el número</div>
+        </div>
+
+        <!-- BÚSQUEDA MANUAL -->
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" id="manualSearch" placeholder="Buscar número (también funciona con últimos 4 dígitos)..." onkeypress="if(event.key==='Enter') buscarManual()">
+                <button class="btn-search" onclick="buscarManual()">🔍 Buscar</button>
+            </div>
+        </div>
+
+        <!-- RESULTADOS -->
+        <div class="results-section" id="resultsSection" style="display: none;">
+            <h3>📋 Resultados Encontrados</h3>
+            <div id="resultsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== VARIABLES GLOBALES ====================
+        let sheetData = [];      // Todos los datos de la hoja
+        let headers = [];        // Encabezados de columna (fila 1)
+        let recognition = null;  // Objeto de reconocimiento de voz
+        let isListening = false;
+        let scriptUrl = '';
+        let sheetName = 'Hoja1';
+
+        // ==================== INICIALIZACIÓN ====================
+        window.onload = function() {
+            // Cargar configuración guardada
+            const savedUrl = localStorage.getItem('gs_scriptUrl');
+            const savedSheet = localStorage.getItem('gs_sheetName');
+            const savedRange = localStorage.getItem('gs_rangeName');
+
+            if (savedUrl) document.getElementById('scriptUrl').value = savedUrl;
+            if (savedSheet) document.getElementById('sheetName').value = savedSheet;
+            if (savedRange) document.getElementById('rangeName').value = savedRange;
+
+            // Inicializar reconocimiento de voz
+            initVoiceRecognition();
+        };
+
+        // Guardar config al cambiar
+        document.getElementById('scriptUrl').addEventListener('change', e => localStorage.setItem('gs_scriptUrl', e.target.value));
+        document.getElementById('sheetName').addEventListener('change', e => localStorage.setItem('gs_sheetName', e.target.value));
+        document.getElementById('rangeName').addEventListener('change', e => localStorage.setItem('gs_rangeName', e.target.value));
+
+        // ==================== RECONOCIMIENTO DE VOZ ====================
+        function initVoiceRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!SpeechRecognition) {
+                showStatus('❌ Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.', 'error');
+                document.getElementById('btnMic').disabled = true;
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = function() {
+                isListening = true;
+                document.getElementById('btnMic').classList.add('listening');
+                document.getElementById('micLabel').textContent = 'Escuchando... di el número';
+                showStatus('🎙️ Escuchando... di el número que deseas buscar', 'listening');
+            };
+
+            recognition.onend = function() {
+                isListening = false;
+                document.getElementById('btnMic').classList.remove('listening');
+                document.getElementById('micLabel').textContent = 'Toca el micrófono y di el número';
+                if (!document.getElementById('statusBar').classList.contains('success') && 
+                    !document.getElementById('statusBar').classList.contains('error')) {
+                    showStatus('🎤 Presiona el micrófono y di un número para buscar', 'idle');
+                }
+            };
+
+            recognition.onresult = function(event) {
+                const transcript = event.results[0][0].transcript;
+                console.log('Voz detectada:', transcript);
+
+                // Extraer números del texto
+                const numeros = extraerNumeros(transcript);
+
+                if (numeros.length > 0) {
+                    const numeroBuscado = numeros[0];
+                    document.getElementById('manualSearch').value = numeroBuscado;
+                    showMsg(🎙️ Escuchado: "${transcript}" → Buscando: ${numeroBuscado}, 'info');
+                    buscarNumero(numeroBuscado);
+                } else {
+                    showStatus('⚠️ No detecté ningún número. Intenta de nuevo.', 'error');
+                }
+            };
+
+            recognition.onerror = function(event) {
+                console.error('Error de voz:', event.error);
+                showStatus('❌ Error al escuchar: ' + event.error, 'error');
+            };
+        }
+
+        function toggleVoice() {
+            if (!recognition) {
+                showMsg('❌ El reconocimiento de voz no está disponible en este navegador', 'error');
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        // Extraer números de un texto (incluye números con espacios entre dígitos)
+        function extraerNumeros(texto) {
+            // Eliminar espacios entre dígitos primero
+            const sinEspacios = texto.replace(/(\d)\s+(?=[\d])/g, '$1');
+            // Extraer todos los números
+            const matches = sinEspacios.match(/\d+/g);
+            return matches || [];
+        }
+
+        // ==================== CARGAR DATOS ====================
+        async function cargarDatos() {
+            scriptUrl = document.getElementById('scriptUrl').value.trim();
+            sheetName = document.getElementById('sheetName').value.trim() || 'Hoja1';
+            const rangeName = document.getElementById('rangeName').value.trim() || 'A:Z';
+
+            if (!scriptUrl) {
+                showMsg('⚠️ Por favor ingresa la URL del Script de Google Apps', 'error');
+                return;
+            }
+
+            showStatus('⏳ Cargando datos de Google Sheets...', 'idle');
+
+            try {
+                // Usar JSONP para evitar CORS
+                const callbackName = 'gsCallback_' + Date.now();
+                const url = ${scriptUrl}?sheet=${encodeURIComponent(sheetName)}&range=${encodeURIComponent(rangeName)}&callback=${callbackName};
+
+                const data = await fetchJsonp(url, callbackName);
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                sheetData = data.data || [];
+
+                if (sheetData.length === 0) {
+                    showStatus('⚠️ La hoja está vacía', 'error');
+                    return;
+                }
+
+                // La primera fila son los encabezados
+                headers = sheetData[0];
+
+                showStatus(✅ Datos cargados: ${sheetData.length - 1} filas, ${headers.length} columnas, 'success');
+                showMsg(📊 ${sheetData.length - 1} registros cargados correctamente, 'success');
+
+            } catch (err) {
+                console.error(err);
+                showStatus('❌ Error al cargar: ' + err.message, 'error');
+                showMsg('❌ ' + err.message, 'error');
+            }
+        }
+
+        // JSONP helper
+        function fetchJsonp(url, callbackName) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                const timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Timeout al cargar datos'));
+                }, 15000);
+
+                window[callbackName] = function(data) {
+                    clearTimeout(timeout);
+                    cleanup();
+                    resolve(data);
+                };
+
+                function cleanup() {
+                    delete window[callbackName];
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                }
+
+                script.onerror = function() {
+                    clearTimeout(timeout);
+                    cleanup();
+                    reject(new Error('Error de red al cargar datos'));
+                };
+
+                script.src = url;
+                document.head.appendChild(script);
+            });
+        }
+
+        // ==================== BÚSQUEDA ====================
+        function buscarManual() {
+            const valor = document.getElementById('manualSearch').value.trim();
+            if (!valor) {
+                showMsg('⚠️ Ingresa un número para buscar', 'error');
+                return;
+            }
+            buscarNumero(valor);
+        }
+
+        function buscarNumero(numeroBuscado) {
+            if (sheetData.length === 0) {
+                showMsg('⚠️ Primero debes cargar los datos de la hoja', 'error');
+                showStatus('⚠️ Carga los datos primero', 'error');
+                return;
+            }
+
+            const resultados = [];
+            const busquedaLimpia = numeroBuscado.replace(/\s/g, '');
+            const esBusquedaCorta = busquedaLimpia.length <= 4;
+            const ultimos4 = busquedaLimpia.slice(-4);
+
+            // Recorrer filas (empezando desde la fila 2, índice 1)
+            for (let rowIdx = 1; rowIdx < sheetData.length; rowIdx++) {
+                const fila = sheetData[rowIdx];
+
+                for (let colIdx = 0; colIdx < fila.length; colIdx++) {
+                    const celda = String(fila[colIdx] || '').trim();
+                    const celdaLimpia = celda.replace(/\s/g, '');
+
+                    let coincide = false;
+                    let tipoMatch = '';
+
+                    if (esBusquedaCorta && celdaLimpia.length > 4) {
+                        // Búsqueda por últimos 4 dígitos
+                        if (celdaLimpia.slice(-4) === ultimos4) {
+                            coincide = true;
+                            tipoMatch = 'Últimos 4 dígitos';
+                        }
+                    } else {
+                        // Búsqueda exacta o parcial
+                        if (celdaLimpia === busquedaLimpia) {
+                            coincide = true;
+                            tipoMatch = 'Coincidencia exacta';
+                        } else if (celdaLimpia.includes(busquedaLimpia)) {
+                            coincide = true;
+                            tipoMatch = 'Coincidencia parcial';
+                        }
+                    }
+
+                    if (coincide) {
+                        resultados.push({
+                            numeroCompleto: celda,
+                            columnaNombre: headers[colIdx] || Columna ${columnaALetra(colIdx)},
+                            columnaLetra: columnaALetra(colIdx),
+                            filaNumero: rowIdx + 1, // Fila en Sheets (1-based)
+                            filaIndex: rowIdx,        // Índice en array (0-based, para eliminar)
+                            tipoMatch: tipoMatch,
+                            colIndex: colIdx
+                        });
+                    }
+                }
+            }
+
+            mostrarResultados(resultados, numeroBuscado);
+        }
+
+        function columnaALetra(index) {
+            let letra = '';
+            let i = index;
+            while (i >= 0) {
+                letra = String.fromCharCode(65 + (i % 26)) + letra;
+                i = Math.floor(i / 26) - 1;
+            }
+            return letra;
+        }
+
+        // ==================== MOSTRAR RESULTADOS ====================
+        function mostrarResultados(resultados, busqueda) {
+            const container = document.getElementById('resultsContainer');
+            const section = document.getElementById('resultsSection');
+
+            if (resultados.length === 0) {
+                container.innerHTML = `
+                    <div class="no-results">
+                        <div class="no-results-icon">🔍</div>
+                        <div>No se encontró "${busqueda}" en ninguna celda</div>
+                    </div>
+                `;
+                section.style.display = 'block';
+                showStatus(❌ "${busqueda}" no encontrado, 'error');
+                return;
+            }
+
+            let html = '';
+            resultados.forEach((res, idx) => {
+                html += `
+                    <div class="result-card" id="card-${idx}">
+                        <div class="result-header">
+                            <div class="result-number">${res.numeroCompleto}</div>
+                            <div class="result-match-type">${res.tipoMatch}</div>
+                        </div>
+                        <div class="result-details">
+                            <div class="detail-box">
+                                <div class="label">📊 Columna</div>
+                                <div class="value">${res.columnaNombre}</div>
+                            </div>
+                            <div class="detail-box">
+                                <div class="label">📍 Fila</div>
+                                <div class="value">${res.filaNumero}</div>
+                            </div>
+                        </div>
+                        <button class="btn-found" id="btn-found-${idx}" onclick="eliminarFila(${res.filaNumero}, ${idx})">
+                            ✅ ENCONTRADO - Eliminar Fila ${res.filaNumero}
+                        </button>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            section.style.display = 'block';
+            showStatus(✅ ${resultados.length} resultado(s) encontrado(s) para "${busqueda}", 'success');
+        }
+
+        // ==================== ELIMINAR FILA ====================
+        async function eliminarFila(filaNumero, cardIndex) {
+            const btn = document.getElementById(btn-found-${cardIndex});
+            btn.disabled = true;
+            btn.classList.add('deleting');
+            btn.innerHTML = '<span class="spinner"></span> Eliminando...';
+
+            try {
+                // Usar JSONP para POST (simulado con GET para evitar CORS)
+                const callbackName = 'delCallback_' + Date.now();
+                const url = ${scriptUrl}?action=delete&sheet=${encodeURIComponent(sheetName)}&row=${filaNumero}&callback=${callbackName};
+
+                const data = await fetchJsonp(url, callbackName);
+
+                if (data.success) {
+                    // Eliminar la card visualmente
+                    const card = document.getElementById(card-${cardIndex});
+                    card.style.transition = 'all 0.5s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(100px)';
+
+                    setTimeout(() => {
+                        card.remove();
+                        // Recargar datos para actualizar índices
+                        cargarDatos();
+                    }, 500);
+
+                    showMsg(✅ Fila ${filaNumero} eliminada correctamente, 'success');
+                } else {
+                    throw new Error(data.error || 'Error al eliminar');
+                }
+
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+                btn.classList.remove('deleting');
+                btn.innerHTML = ✅ ENCONTRADO - Eliminar Fila ${filaNumero};
+                showMsg('❌ Error al eliminar: ' + err.message, 'error');
+            }
+        }
+
+        // ==================== UTILIDADES UI ====================
+        function showStatus(texto, tipo) {
+            const bar = document.getElementById('statusBar');
+            bar.textContent = texto;
+            bar.className = 'status-bar ' + tipo;
+        }
+
+        function showMsg(texto, tipo) {
+            const box = document.getElementById('msgBox');
+            box.textContent = texto;
+            box.className = 'msg-box msg-' + tipo + ' show';
+
+            setTimeout(() => {
+                box.classList.remove('show');
+            }, 4000);
+        }
+    </script>
+</body>
+</html>
