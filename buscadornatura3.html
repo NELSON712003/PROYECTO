@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Buscador por Voz - Google Sheets</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            min-height: 100vh;
+            padding: 15px;
+            color: #fff;
+        }
+        .container { max-width: 720px; margin: 0 auto; }
+
+        .header { text-align: center; margin-bottom: 20px; }
+        .header h1 { font-size: 1.7rem; margin-bottom: 5px; }
+        .header p { color: #a0aec0; font-size: 0.9rem; }
+
+        .config-panel {
+            background: rgba(255,255,255,0.07);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 15px;
+        }
+        .config-panel h3 {
+            font-size: 0.95rem;
+            margin-bottom: 12px;
+            color: #63b3ed;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .input-group { margin-bottom: 10px; }
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            color: #cbd5e0;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 11px 14px;
+            border: 2px solid rgba(255,255,255,0.12);
+            border-radius: 10px;
+            background: rgba(0,0,0,0.3);
+            color: #fff;
+            font-size: 0.9rem;
+        }
+        .input-group input:focus { outline: none; border-color: #63b3ed; }
+        .input-group input::placeholder { color: #718096; }
+
+        .btn-row { display: flex; gap: 10px; margin-top: 10px; }
+        .btn-primary {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(66,153,225,0.4); }
+        .btn-primary:disabled { background: #4a5568; cursor: not-allowed; transform: none; }
+
+        .btn-test {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            color: white;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+        .btn-test:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(56,161,105,0.4); }
+
+        .debug-panel {
+            background: rgba(0,0,0,0.4);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .debug-header {
+            background: rgba(255,255,255,0.05);
+            padding: 10px 15px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #a0aec0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .debug-header span { color: #f6ad55; }
+        .debug-body {
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 10px 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.5;
+        }
+        .debug-line { margin-bottom: 4px; padding: 3px 6px; border-radius: 4px; }
+        .debug-info { color: #90cdf4; background: rgba(66,153,225,0.1); }
+        .debug-ok { color: #68d391; background: rgba(72,187,120,0.1); }
+        .debug-err { color: #fc8181; background: rgba(245,101,101,0.1); }
+        .debug-warn { color: #fbd38d; background: rgba(251,211,141,0.1); }
+
+        .status-bar {
+            text-align: center;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+        .status-idle { background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: #a0aec0; }
+        .status-listen { background: rgba(229,62,62,0.15); border: 1px solid rgba(229,62,62,0.3); color: #feb2b2; animation: pulse 1.5s infinite; }
+        .status-ok { background: rgba(72,187,120,0.15); border: 1px solid rgba(72,187,120,0.3); color: #9ae6b4; }
+        .status-err { background: rgba(229,62,62,0.15); border: 1px solid rgba(229,62,62,0.3); color: #feb2b2; }
+        .status-load { background: rgba(66,153,225,0.15); border: 1px solid rgba(66,153,225,0.3); color: #90cdf4; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+        .mic-section { text-align: center; margin-bottom: 18px; }
+        .btn-mic {
+            width: 90px; height: 90px; border-radius: 50%; border: none;
+            background: linear-gradient(135deg, #e53e3e, #c53030);
+            color: white; font-size: 2.2rem; cursor: pointer;
+            transition: all 0.3s; box-shadow: 0 5px 25px rgba(229,62,62,0.4);
+        }
+        .btn-mic:hover { transform: scale(1.05); }
+        .btn-mic.listening { animation: micPulse 1s infinite; background: linear-gradient(135deg, #38a169, #2f855a); }
+        @keyframes micPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
+        .mic-label { margin-top: 10px; color: #a0aec0; font-size: 0.85rem; }
+
+        .search-section {
+            background: rgba(255,255,255,0.04);
+            border-radius: 14px; padding: 16px;
+            margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.08);
+        }
+        .search-row { display: flex; gap: 8px; }
+        .search-row input {
+            flex: 1; padding: 13px 16px;
+            border: 2px solid rgba(255,255,255,0.12); border-radius: 10px;
+            background: rgba(0,0,0,0.25); color: #fff; font-size: 1rem;
+        }
+        .search-row input:focus { outline: none; border-color: #805ad5; }
+        .search-row input::placeholder { color: #718096; }
+        .btn-search {
+            padding: 13px 20px; border: none; border-radius: 10px;
+            background: linear-gradient(135deg, #805ad5, #6b46c1);
+            color: white; font-weight: bold; font-size: 0.95rem;
+            cursor: pointer; transition: all 0.3s; white-space: nowrap;
+        }
+        .btn-search:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(128,90,213,0.4); }
+
+        .results-section { margin-bottom: 15px; }
+        .results-section h3 { font-size: 1rem; margin-bottom: 12px; color: #e2e8f0; }
+        .result-card {
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 14px; padding: 16px;
+            margin-bottom: 12px; animation: slideUp 0.4s ease;
+        }
+        @keyframes slideUp { from{opacity:0;transform:translateY(15px)} to{opacity:1;transform:translateY(0)} }
+        .result-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 12px; padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .result-number { font-size: 1.4rem; font-weight: bold; color: #fbd38d; }
+        .result-match { font-size: 0.7rem; padding: 3px 10px; border-radius: 20px; background: rgba(251,211,141,0.12); color: #fbd38d; }
+        .result-details { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+        .detail-box { background: rgba(0,0,0,0.2); border-radius: 8px; padding: 10px; text-align: center; }
+        .detail-box .label { font-size: 0.7rem; color: #a0aec0; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+        .detail-box .value { font-size: 1.1rem; font-weight: bold; color: #63b3ed; }
+        .btn-found {
+            width: 100%; padding: 12px; border: none; border-radius: 10px;
+            background: linear-gradient(135deg, #38a169, #2f855a);
+            color: white; font-weight: bold; font-size: 1rem;
+            cursor: pointer; transition: all 0.3s; text-transform: uppercase;
+        }
+        .btn-found:hover { transform: translateY(-2px); box-shadow: 0 5px 20px rgba(56,161,105,0.4); }
+        .btn-found:disabled { background: #4a5568; cursor: not-allowed; transform: none; }
+        .btn-found.deleting { background: linear-gradient(135deg, #dd6b20, #c05621); }
+
+        .no-results { text-align: center; padding: 30px 15px; color: #718096; }
+        .no-results .icon { font-size: 2.5rem; margin-bottom: 8px; }
+
+        .msg-box {
+            padding: 12px; border-radius: 10px; margin-bottom: 12px;
+            text-align: center; font-weight: 600; font-size: 0.9rem;
+            display: none;
+        }
+        .msg-box.show { display: block; animation: fadeIn 0.3s ease; }
+        .msg-ok { background: rgba(72,187,120,0.15); border: 1px solid rgba(72,187,120,0.3); color: #9ae6b4; }
+        .msg-err { background: rgba(229,62,62,0.15); border: 1px solid rgba(229,62,62,0.3); color: #feb2b2; }
+        .msg-info { background: rgba(66,153,225,0.15); border: 1px solid rgba(66,153,225,0.3); color: #90cdf4; }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        .spinner {
+            display: inline-block; width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+            border-radius: 50%; animation: spin 0.8s linear infinite;
+            margin-right: 6px; vertical-align: middle;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @media (max-width: 480px) {
+            .header h1 { font-size: 1.3rem; }
+            .result-details { grid-template-columns: 1fr; }
+            .search-row { flex-direction: column; }
+            .btn-search { width: 100%; }
+            .btn-row { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 REFRICARGA - NATURA</h1>
+            <p>MEDELLIN</p>
+        </div>
+
+        <div class="config-panel">
+            <h3>⚙️ Configuración</h3>
+            <div class="input-group">
+                <label>🔗 URL del Script de Google Apps:</label>
+                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbzilqwqICR43OfRXSLwrdpuoXvgmnDYD-F1Z7U9MIniqj-wfuQezwO9PmrRKn26_OMlfg/exec">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div class="input-group">
+                    <label>📄 Nombre de la Hoja:</label>
+                    <input type="text" id="sheetName" value="ciegos">
+                </div>
+                <div class="input-group">
+                    <label>📊 Rango (columnas):</label>
+                    <input type="text" id="rangeName" value="A:Z">
+                </div>
+            </div>
+            <div class="btn-row">
+                <button class="btn-test" onclick="probarConexion()">🔌 Probar Conexión</button>
+                <button class="btn-primary" id="btnCargar" onclick="cargarDatos()">📥 Cargar Datos</button>
+            </div>
+        </div>
+
+        <div class="debug-panel">
+            <div class="debug-header" onclick="toggleDebug()">
+                <span>🐛 Consola de Depuración</span>
+                <span id="debugToggle">▼</span>
+            </div>
+            <div class="debug-body" id="debugBody">
+                <div class="debug-line debug-info">Esperando acción...</div>
+            </div>
+        </div>
+
+        <div id="statusBar" class="status-bar status-idle">🎤 Listo</div>
+        <div id="msgBox" class="msg-box"></div>
+
+        <div class="mic-section">
+            <button id="btnMic" class="btn-mic" onclick="toggleVoice()" title="Presiona para hablar">🎤</button>
+            <div class="mic-label" id="micLabel">Toca el micrófono y di el número</div>
+        </div>
+
+        <div class="search-section">
+            <div class="search-row">
+                <input type="text" id="manualSearch" placeholder="Buscar número o últimos 4 dígitos..." onkeypress="if(event.key==='Enter') buscarManual()">
+                <button class="btn-search" onclick="buscarManual()">🔍 Buscar</button>
+            </div>
+        </div>
+
+        <div class="results-section" id="resultsSection" style="display:none;">
+            <h3>📋 Resultados Encontrados</h3>
+            <div id="resultsContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let sheetData = [];
+        let headers = [];
+        let recognition = null;
+        let isListening = false;
+        let scriptUrl = '';
+        let sheetName = 'ciegos';
+        let debugVisible = true;
+
+        function log(msg, type = 'info') {
+            const body = document.getElementById('debugBody');
+            const line = document.createElement('div');
+            line.className = 'debug-line debug-' + type;
+            const time = new Date().toLocaleTimeString('es-ES', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+            line.textContent = `[${time}] ${msg}`;
+            body.appendChild(line);
+            body.scrollTop = body.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${msg}`);
+        }
+
+        function toggleDebug() {
+            const body = document.getElementById('debugBody');
+            const toggle = document.getElementById('debugToggle');
+            debugVisible = !debugVisible;
+            body.style.display = debugVisible ? 'block' : 'none';
+            toggle.textContent = debugVisible ? '▼' : '▶';
+        }
+
+        window.onload = function() {
+            log('Página cargada. Inicializando...', 'info');
+            const savedUrl = localStorage.getItem('gs_scriptUrl');
+            const savedSheet = localStorage.getItem('gs_sheetName');
+            const savedRange = localStorage.getItem('gs_rangeName');
+            if (savedUrl) { document.getElementById('scriptUrl').value = savedUrl; log('URL cargada desde localStorage', 'ok'); }
+            if (savedSheet) { document.getElementById('sheetName').value = savedSheet; }
+            if (savedRange) { document.getElementById('rangeName').value = savedRange; }
+            initVoice();
+            log('Inicialización completa', 'ok');
+        };
+
+        document.getElementById('scriptUrl').addEventListener('change', e => {
+            localStorage.setItem('gs_scriptUrl', e.target.value);
+            log('URL guardada', 'ok');
+        });
+        document.getElementById('sheetName').addEventListener('change', e => localStorage.setItem('gs_sheetName', e.target.value));
+        document.getElementById('rangeName').addEventListener('change', e => localStorage.setItem('gs_rangeName', e.target.value));
+
+        async function probarConexion() {
+            const url = document.getElementById('scriptUrl').value.trim();
+            if (!url) {
+                showMsg('⚠️ Ingresa la URL del script primero', 'err');
+                log('URL vacía', 'err');
+                return;
+            }
+            log('Probando conexión con: ' + url, 'info');
+            showStatus('⏳ Probando conexión...', 'load');
+            try {
+                const result = await jsonpRequest(url, { action: 'ping' });
+                log('Respuesta del servidor: ' + JSON.stringify(result), 'ok');
+                if (result && result.pong) {
+                    showStatus('✅ Conexión exitosa', 'ok');
+                    showMsg('✅ Conexión OK', 'ok');
+                } else if (result && result.error) {
+                    showStatus('❌ Error en script: ' + result.error, 'err');
+                    showMsg('❌ ' + result.error, 'err');
+                    log('Error del script: ' + result.error, 'err');
+                } else {
+                    showStatus('⚠️ Respuesta inesperada', 'err');
+                    log('Respuesta inesperada: ' + JSON.stringify(result), 'warn');
+                }
+            } catch (err) {
+                showStatus('❌ No se pudo conectar', 'err');
+                showMsg('❌ Error de conexión: ' + err.message, 'err');
+                log('Error de conexión: ' + err.message, 'err');
+            }
+        }
+
+        async function cargarDatos() {
+            scriptUrl = document.getElementById('scriptUrl').value.trim();
+            sheetName = document.getElementById('sheetName').value.trim() || 'ciegos';
+            const rangeName = document.getElementById('rangeName').value.trim() || 'A:Z';
+
+            if (!scriptUrl) {
+                showMsg('⚠️ Ingresa la URL del Script', 'err');
+                log('URL del script vacía', 'err');
+                return;
+            }
+
+            log('Cargando datos... URL=' + scriptUrl, 'info');
+            log('Hoja=' + sheetName + ', Rango=' + rangeName, 'info');
+            showStatus('⏳ Cargando datos...', 'load');
+            document.getElementById('btnCargar').disabled = true;
+
+            try {
+                const result = await jsonpRequest(scriptUrl, {
+                    action: 'getData',
+                    sheet: sheetName,
+                    range: rangeName
+                });
+
+                log('Respuesta recibida', 'info');
+
+                if (result && result.error) {
+                    throw new Error(result.error);
+                }
+
+                if (!result || !result.data) {
+                    throw new Error('La respuesta no contiene datos');
+                }
+
+                sheetData = result.data;
+
+                if (sheetData.length === 0) {
+                    showStatus('⚠️ La hoja está vacía', 'err');
+                    log('Hoja vacía', 'warn');
+                    return;
+                }
+
+                headers = sheetData[0];
+                log('Encabezados: ' + headers.join(' | '), 'ok');
+                log('Filas cargadas: ' + (sheetData.length - 1), 'ok');
+
+                showStatus('✅ ' + (sheetData.length - 1) + ' registros cargados', 'ok');
+                showMsg('📊 ' + (sheetData.length - 1) + ' registros listos', 'ok');
+
+            } catch (err) {
+                showStatus('❌ Error: ' + err.message, 'err');
+                showMsg('❌ ' + err.message, 'err');
+                log('ERROR: ' + err.message, 'err');
+            } finally {
+                document.getElementById('btnCargar').disabled = false;
+            }
+        }
+
+        function jsonpRequest(baseUrl, params) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 10000);
+                const queryParts = [];
+                for (const key in params) {
+                    queryParts.push(encodeURIComponent(key) + '=' + encodeURIComponent(params[key]));
+                }
+                queryParts.push('callback=' + callbackName);
+
+                const url = baseUrl + (baseUrl.indexOf('?') >= 0 ? '&' : '?') + queryParts.join('&');
+                log('JSONP URL: ' + url.substring(0, 150) + '...', 'info');
+
+                const script = document.createElement('script');
+                const timeout = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('Timeout - El script no respondió en 15 segundos'));
+                }, 15000);
+
+                window[callbackName] = function(data) {
+                    clearTimeout(timeout);
+                    cleanup();
+                    resolve(data);
+                };
+
+                function cleanup() {
+                    delete window[callbackName];
+                    if (script.parentNode) script.parentNode.removeChild(script);
+                }
+
+                script.onerror = function() {
+                    clearTimeout(timeout);
+                    cleanup();
+                    reject(new Error('Error al cargar el script. Verifica la URL.'));
+                };
+
+                script.src = url;
+                document.head.appendChild(script);
+            });
+        }
+
+        function initVoice() {
+            const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SR) {
+                log('Reconocimiento de voz NO disponible', 'err');
+                document.getElementById('btnMic').disabled = true;
+                document.getElementById('micLabel').textContent = '❌ No soportado';
+                return;
+            }
+
+            recognition = new SR();
+            recognition.lang = 'es-ES';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('btnMic').classList.add('listening');
+                document.getElementById('micLabel').textContent = '🔴 Escuchando...';
+                showStatus('🎙️ Escuchando...', 'listen');
+                log('Micrófono activado', 'info');
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                document.getElementById('btnMic').classList.remove('listening');
+                document.getElementById('micLabel').textContent = 'Toca el micrófono y di el número';
+                if (document.getElementById('statusBar').classList.contains('status-listen')) {
+                    showStatus('🎤 Listo', 'idle');
+                }
+                log('Micrófono detenido', 'info');
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                log('Voz detectada: "' + transcript + '"', 'info');
+                const numeros = extraerNumeros(transcript);
+                if (numeros.length > 0) {
+                    const num = numeros[0];
+                    document.getElementById('manualSearch').value = num;
+                    showMsg('🎙️ Escuchado: "' + transcript + '" → Buscando: ' + num, 'info');
+                    log('Número extraído: ' + num, 'ok');
+                    buscarNumero(num);
+                } else {
+                    showStatus('⚠️ No detecté números', 'err');
+                    log('No se encontraron números en: ' + transcript, 'warn');
+                }
+            };
+
+            recognition.onerror = (event) => {
+                log('Error de voz: ' + event.error, 'err');
+                showStatus('❌ Error de micrófono: ' + event.error, 'err');
+            };
+
+            log('Reconocimiento de voz inicializado', 'ok');
+        }
+
+        function toggleVoice() {
+            if (!recognition) { showMsg('❌ Voz no disponible', 'err'); return; }
+            if (isListening) recognition.stop(); else recognition.start();
+        }
+
+        function extraerNumeros(texto) {
+            const sinEspacios = texto.replace(/(\d)\s+(?=[\d])/g, '$1');
+            return sinEspacios.match(/\d+/g) || [];
+        }
+
+        function buscarManual() {
+            const val = document.getElementById('manualSearch').value.trim();
+            if (!val) { showMsg('⚠️ Ingresa un número', 'err'); return; }
+            buscarNumero(val);
+        }
+
+        function buscarNumero(numeroBuscado) {
+            log('Buscando: ' + numeroBuscado, 'info');
+
+            if (sheetData.length === 0) {
+                showMsg('⚠️ Primero carga los datos', 'err');
+                showStatus('⚠️ Sin datos cargados', 'err');
+                log('Búsqueda sin datos', 'warn');
+                return;
+            }
+
+            const resultados = [];
+            const busquedaLimpia = numeroBuscado.replace(/\s/g, '');
+            const esCorta = busquedaLimpia.length <= 4;
+            const ultimos4 = busquedaLimpia.slice(-4);
+
+            for (let r = 1; r < sheetData.length; r++) {
+                const fila = sheetData[r];
+                for (let c = 0; c < fila.length; c++) {
+                    const celda = String(fila[c] || '').trim();
+                    const celdaLimpia = celda.replace(/\s/g, '');
+                    let coincide = false, tipo = '';
+
+                    if (esCorta && celdaLimpia.length > 4) {
+                        if (celdaLimpia.slice(-4) === ultimos4) { coincide = true; tipo = 'Últimos 4 dígitos'; }
+                    } else {
+                        if (celdaLimpia === busquedaLimpia) { coincide = true; tipo = 'Exacta'; }
+                        else if (celdaLimpia.includes(busquedaLimpia)) { coincide = true; tipo = 'Parcial'; }
+                    }
+
+                    if (coincide) {
+                        resultados.push({
+                            numero: celda,
+                            colNombre: headers[c] || ('Col ' + colLetra(c)),
+                            colLetra: colLetra(c),
+                            filaNum: r + 1,
+                            filaIdx: r,
+                            tipo: tipo,
+                            colIdx: c
+                        });
+                    }
+                }
+            }
+
+            log('Resultados encontrados: ' + resultados.length, resultados.length > 0 ? 'ok' : 'warn');
+            mostrarResultados(resultados, numeroBuscado);
+        }
+
+        function colLetra(i) {
+            let l = '';
+            while (i >= 0) { l = String.fromCharCode(65 + (i % 26)) + l; i = Math.floor(i / 26) - 1; }
+            return l;
+        }
+
+        function mostrarResultados(res, busqueda) {
+            const container = document.getElementById('resultsContainer');
+            const section = document.getElementById('resultsSection');
+
+            if (res.length === 0) {
+                container.innerHTML = '<div class="no-results"><div class="icon">🔍</div><div>"' + busqueda + '" no encontrado</div></div>';
+                section.style.display = 'block';
+                showStatus('❌ "' + busqueda + '" no encontrado', 'err');
+                return;
+            }
+
+            let html = '';
+            res.forEach((r, i) => {
+                html += '<div class="result-card" id="card-' + i + '">' +
+                    '<div class="result-header"><div class="result-number">' + r.numero + '</div><div class="result-match">' + r.tipo + '</div></div>' +
+                    '<div class="result-details">' +
+                    '<div class="detail-box"><div class="label">📊 Columna</div><div class="value">' + r.colNombre + '</div></div>' +
+                    '<div class="detail-box"><div class="label">📍 Fila</div><div class="value">' + r.filaNum + '</div></div>' +
+                    '</div>' +
+                    '<button class="btn-found" id="btnf-' + i + '" onclick="borrarCelda(' + r.filaNum + ',' + r.colIdx + ',' + i + ')">' +
+                    '✅ ENCONTRADO - Borrar Celda ' + r.colLetra + r.filaNum + '</button></div>';
+            });
+
+            container.innerHTML = html;
+            section.style.display = 'block';
+            showStatus('✅ ' + res.length + ' resultado(s) para "' + busqueda + '"', 'ok');
+        }
+
+        // ==================== BORRAR CELDA + COMPACTAR ====================
+        async function borrarCelda(filaNum, colIdx, cardIdx) {
+            const btn = document.getElementById('btnf-' + cardIdx);
+            btn.disabled = true;
+            btn.classList.add('deleting');
+            btn.innerHTML = '<span class="spinner"></span> Borrando...';
+            
+            const colLetraRef = colLetra(colIdx);
+            const cellRef = colLetraRef + filaNum;
+            
+            log('>>> BORRAR CELDA: ' + cellRef + ' (fila=' + filaNum + ', colIdx=' + colIdx + ')', 'info');
+            log('>>> scriptUrl=' + scriptUrl, 'info');
+
+            try {
+                const params = {
+                    action: 'clearCell',
+                    sheet: sheetName,
+                    row: filaNum,
+                    col: colIdx + 1
+                };
+                
+                log('>>> Enviando: ' + JSON.stringify(params), 'info');
+
+                const result = await jsonpRequest(scriptUrl, params);
+                log('>>> Respuesta: ' + JSON.stringify(result), 'info');
+
+                if (result && result.success) {
+                    const card = document.getElementById('card-' + cardIdx);
+                    card.style.transition = 'all 0.5s';
+                    card.style.opacity = '0';
+                    card.style.transform = 'translateX(80px)';
+                    setTimeout(() => {
+                        card.remove();
+                        if (document.getElementById('resultsContainer').children.length === 0) {
+                            document.getElementById('resultsSection').style.display = 'none';
+                        }
+                        cargarDatos();
+                    }, 500);
+                    showMsg('✅ Celda ' + cellRef + ' borrada y columna compactada', 'ok');
+                    log('>>> ÉXITO: ' + result.message, 'ok');
+                } else {
+                    throw new Error((result && result.error) || 'Respuesta sin success');
+                }
+            } catch (err) {
+                btn.disabled = false;
+                btn.classList.remove('deleting');
+                btn.innerHTML = '✅ ENCONTRADO - Borrar Celda ' + cellRef;
+                showMsg('❌ Error: ' + err.message, 'err');
+                log('>>> ERROR: ' + err.message, 'err');
+            }
+        }
+
+        function showStatus(texto, tipo) {
+            const bar = document.getElementById('statusBar');
+            bar.textContent = texto;
+            bar.className = 'status-bar status-' + tipo;
+        }
+        function showMsg(texto, tipo) {
+            const box = document.getElementById('msgBox');
+            box.textContent = texto;
+            box.className = 'msg-box msg-' + tipo + ' show';
+            setTimeout(() => box.classList.remove('show'), 4000);
+        }
+    </script>
+</body>
+</html>
