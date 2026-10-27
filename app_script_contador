@@ -1,0 +1,103 @@
+function doGet(e) {
+  const action = e.parameter.action;
+  const sheetName = e.parameter.sheet || 'ciegos';
+  const SPREADSHEET_ID = '173J_GNQKSZTkXBkDcObZtqEzolaPVH7_APhK8Z-aTgo';
+  
+  try {
+    const ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    const sheet = ss.getSheetByName(sheetName);
+    
+    if (!sheet) {
+      return jsonpResponse({ error: 'Hoja "' + sheetName + '" no encontrada' }, e);
+    }
+    
+    if (action === 'ping') {
+      return jsonpResponse({ pong: true, message: 'Conexión OK' }, e);
+    }
+    
+    // ========== GET DATA (CORREGIDO - filtra filas vacías) ==========
+    if (action === 'getData') {
+      // Usamos getDataRange() que solo cubre el área con datos reales
+      const rawData = sheet.getDataRange().getValues();
+      
+      // Filtrar filas que están COMPLETAMENTE vacías (todas las celdas en "")
+      const data = rawData.filter(row => {
+        return row.some(cell => cell !== '' && cell !== null && cell !== undefined);
+      });
+      
+      return jsonpResponse({ success: true, data: data }, e);
+    }
+    
+    if (action === 'clearCell') {
+      const row = parseInt(e.parameter.row);
+      const col = parseInt(e.parameter.col);
+      
+      if (!row || !col || row < 1 || col < 1) {
+        return jsonpResponse({ error: 'Fila y columna inválidas' }, e);
+      }
+      
+      const lastRow = sheet.getLastRow();
+      const totalRows = lastRow - row + 1;
+      
+      if (totalRows > 1) {
+        const range = sheet.getRange(row, col, totalRows, 1);
+        const values = range.getValues();
+        
+        const compacted = [];
+        for (let i = 1; i < values.length; i++) {
+          const val = values[i][0];
+          if (val !== '' && val !== null && val !== undefined && String(val).trim() !== '') {
+            compacted.push([val]);
+          }
+        }
+        
+        while (compacted.length < totalRows) {
+          compacted.push(['']);
+        }
+        
+        range.setValues(compacted);
+        
+      } else if (totalRows === 1) {
+        sheet.getRange(row, col).clearContent();
+      }
+      
+      const cellRef = colLetra(col - 1) + row;
+      
+      return jsonpResponse({ 
+        success: true, 
+        message: 'Celda ' + cellRef + ' borrada y columna compactada',
+        cell: cellRef
+      }, e);
+    }
+    
+    if (action === 'delete') {
+      const row = parseInt(e.parameter.row);
+      if (!row) {
+        return jsonpResponse({ error: 'Fila requerida' }, e);
+      }
+      sheet.deleteRow(row);
+      return jsonpResponse({ success: true, message: 'Fila ' + row + ' eliminada' }, e);
+    }
+    
+    return jsonpResponse({ error: 'Acción no reconocida: ' + action }, e);
+    
+  } catch (err) {
+    return jsonpResponse({ error: err.toString() }, e);
+  }
+}
+
+function jsonpResponse(data, e) {
+  const callback = e.parameter.callback || 'callback';
+  const json = JSON.stringify(data);
+  return ContentService.createTextOutput(callback + '(' + json + ');')
+    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+}
+
+function colLetra(i) {
+  let l = '';
+  while (i >= 0) { 
+    l = String.fromCharCode(65 + (i % 26)) + l; 
+    i = Math.floor(i / 26) - 1; 
+  }
+  return l;
+}
