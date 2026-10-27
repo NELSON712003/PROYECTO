@@ -315,16 +315,16 @@
         <div class="config-panel">
             <h3>⚙️ Configuración</h3>
             <div class="input-group">
-                <label>🔗 URL del Script de Google Apps:</label>
+                <label>🔗 URL del Registro:</label>
                 <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxPzFoIqtH5T3-nnweRmn0lDoI82RR8CkBsTr_vNwIMSAUtr3Vi5rNcQ0srcFBMJrEhUw/exec">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div class="input-group">
-                    <label>📄 Nombre de la Hoja:</label>
+                    <label>📄 Nombre del Registro:</label>
                     <input type="text" id="sheetName" value="ciegos">
                 </div>
                 <div class="input-group">
-                    <label>📊 Rango (columnas):</label>
+                    <label>📊 Rango (ANCHO):</label>
                     <input type="text" id="rangeName" value="A:Z">
                 </div>
             </div>
@@ -617,7 +617,7 @@
                 log('Encabezados: ' + headers.join(' | '), 'ok');
                 log('Celdas ocupadas contadas: ' + celdasOcupadas, 'ok');
 
-                showStatus('✅ ' + celdasOcupadas + ' celdas ocupadas (A:Z / 2:1000) | Columna: ' + colLetra(0), 'ok');
+                showStatus('✅ ' + celdasOcupadas + ' cajas | Columna: ' + colLetra(0), 'ok');
                 showMsg('📊 ' + celdasOcupadas + ' celdas con datos cargadas', 'ok');
 
             } catch (err) {
