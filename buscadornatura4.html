@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🔍 REFRICARGA - Escáner & Voz</title>
+    <title>🔍 REFRICARGA - NATURA</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -316,7 +316,7 @@
             <h3>⚙️ Configuración</h3>
             <div class="input-group">
                 <label>🔗 URL del Script de Google Apps:</label>
-                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxXg8Etw3RW3obS05vVT_uduc8S-wu9Yl8PGNxL0MYmcKKRiOMXorDlP3csJ-VqXbq1EA/exec">
+                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxPzFoIqtH5T3-nnweRmn0lDoI82RR8CkBsTr_vNwIMSAUtr3Vi5rNcQ0srcFBMJrEhUw/exec">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div class="input-group">
@@ -600,10 +600,6 @@
                 activeColIndex = 0;
                 updateFieldDisplay();
 
-                // ============================================================
-                // CAMBIO CLAVE: Contar CELDAS OCUPADAS en lugar de filas
-                // Rango A2:Z1000 → filas 2 a 1000 (índices 1 a 999 en array)
-                // ============================================================
                 let celdasOcupadas = 0;
                 for (let r = 1; r < sheetData.length; r++) {
                     for (let c = 0; c < sheetData[r].length; c++) {
@@ -748,7 +744,7 @@
                             numero: celda,
                             colNombre: headers[c] || ('Col ' + colLetra(c)),
                             colLetra: colLetra(c),
-                            filaNum: r + 1,
+                            filaNum: r + 1,        // Fila REAL de Google Sheets
                             filaIdx: r,
                             tipo: tipo,
                             colIdx: c
@@ -776,14 +772,20 @@
             }
             let html = '';
             res.forEach((r, i) => {
+                // ============================================================
+                // CAMBIO: filaMostrada = filaReal - 1 (porque fila 1 = headers)
+                // La fila REAL (r.filaNum) se sigue pasando a borrarCelda()
+                // ============================================================
+                const filaMostrada = r.filaNum - 1;
+                
                 html += '<div class="result-card" id="card-' + i + '">' +
                     '<div class="result-header"><div class="result-number">' + r.numero + '</div><div class="result-match">' + r.tipo + '</div></div>' +
                     '<div class="result-details">' +
                     '<div class="detail-box"><div class="label">Columna</div><div class="value">' + r.colNombre + '</div></div>' +
-                    '<div class="detail-box"><div class="label">Fila</div><div class="value">' + r.filaNum + '</div></div>' +
+                    '<div class="detail-box"><div class="label">Línea</div><div class="value">' + filaMostrada + '</div></div>' +
                     '</div>' +
                     '<button class="btn-found" id="btnf-' + i + '" onclick="borrarCelda(' + r.filaNum + ',' + r.colIdx + ',' + i + ')">' +
-                    '✅ ENCONTRADO - Borrar ' + r.colLetra + r.filaNum + '</button></div>';
+                    '✅ ENCONTRADO - Borrar Línea ' + filaMostrada + ' (' + r.colLetra + ')</button></div>';
             });
             container.innerHTML = html;
             section.style.display = 'block';
@@ -796,6 +798,7 @@
             btn.classList.add('deleting');
             btn.innerHTML = '<span class="spinner"></span> Borrando...';
             const cellRef = colLetra(colIdx) + filaNum;
+            const filaMostrada = filaNum - 1; // Para mensajes visuales
             
             try {
                 const result = await jsonpRequest(scriptUrl, {
@@ -816,14 +819,14 @@
                         }
                         cargarDatos();
                     }, 500);
-                    showMsg('✅ ' + cellRef + ' borrada', 'ok');
+                    showMsg('✅ Línea ' + filaMostrada + ' borrada', 'ok');
                 } else {
                     throw new Error(result.error || 'Error');
                 }
             } catch (err) {
                 btn.disabled = false;
                 btn.classList.remove('deleting');
-                btn.innerHTML = '✅ ENCONTRADO - Borrar ' + cellRef;
+                btn.innerHTML = '✅ ENCONTRADO - Borrar Línea ' + filaMostrada + ' (' + colLetra(colIdx) + ')';
                 showMsg('❌ ' + err.message, 'err');
             }
         }
