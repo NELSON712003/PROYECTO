@@ -20,7 +20,6 @@
         .header h1 { font-size: 1.5rem; margin-bottom: 3px; }
         .header p { color: #a0aec0; font-size: 0.85rem; }
 
-        /* ===== CONFIG ===== */
         .config-panel {
             background: rgba(255,255,255,0.07);
             border: 1px solid rgba(255,255,255,0.12);
@@ -76,7 +75,6 @@
             white-space: nowrap;
         }
 
-        /* ===== SCANNER INPUT ===== */
         .scanner-section {
             background: rgba(255,255,255,0.06);
             border: 2px dashed rgba(255,255,255,0.15);
@@ -146,7 +144,6 @@
             color: #68d391;
         }
 
-        /* ===== NAV BUTTONS ===== */
         .nav-section {
             display: flex;
             align-items: center;
@@ -186,7 +183,6 @@
         @keyframes micPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
         .mic-label { margin-top: 6px; color: #a0aec0; font-size: 0.75rem; }
 
-        /* ===== STATUS & DEBUG ===== */
         .status-bar {
             text-align: center;
             padding: 10px;
@@ -241,7 +237,6 @@
         .msg-err { background: rgba(229,62,62,0.15); border: 1px solid rgba(229,62,62,0.3); color: #feb2b2; }
         .msg-info { background: rgba(66,153,225,0.15); border: 1px solid rgba(66,153,225,0.3); color: #90cdf4; }
 
-        /* ===== SEARCH ===== */
         .search-section {
             background: rgba(255,255,255,0.04);
             border-radius: 12px; padding: 12px;
@@ -260,7 +255,6 @@
             cursor: pointer;
         }
 
-        /* ===== RESULTS ===== */
         .results-section { margin-bottom: 10px; }
         .results-section h3 { font-size: 0.95rem; margin-bottom: 10px; color: #e2e8f0; }
         .result-card {
@@ -318,12 +312,11 @@
             <p>MEDELLIN</p>
         </div>
 
-        <!-- CONFIG -->
         <div class="config-panel">
             <h3>⚙️ Configuración</h3>
             <div class="input-group">
                 <label>🔗 URL del Script de Google Apps:</label>
-                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxPzFoIqtH5T3-nnweRmn0lDoI82RR8CkBsTr_vNwIMSAUtr3Vi5rNcQ0srcFBMJrEhUw/exec">
+                <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxXg8Etw3RW3obS05vVT_uduc8S-wu9Yl8PGNxL0MYmcKKRiOMXorDlP3csJ-VqXbq1EA/exec">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div class="input-group">
@@ -341,7 +334,6 @@
             </div>
         </div>
 
-        <!-- DEBUG -->
         <div class="debug-panel">
             <div class="debug-header" onclick="toggleDebug()">
                 🐛 Consola de Depuración <span id="debugToggle">▼</span>
@@ -351,11 +343,9 @@
             </div>
         </div>
 
-        <!-- STATUS -->
         <div id="statusBar" class="status-bar status-idle">🎤 Listo</div>
         <div id="msgBox" class="msg-box"></div>
 
-        <!-- SCANNER & NAVIGATION -->
         <div class="scanner-section" id="scannerSection">
             <div class="field-display" id="fieldDisplay">
                 <div class="label">📍 Campo Activo</div>
@@ -378,7 +368,6 @@
             <div class="last-scan" id="lastScan" style="display:none;"></div>
         </div>
 
-        <!-- NAV + MIC -->
         <div class="nav-section">
             <button class="btn-nav" onclick="prevColumn()" title="Columna anterior">⬅️</button>
             
@@ -390,7 +379,6 @@
             <button class="btn-nav" onclick="nextColumn()" title="Columna siguiente">➡️</button>
         </div>
 
-        <!-- SEARCH -->
         <div class="search-section">
             <div class="search-row">
                 <input type="text" id="manualSearch" placeholder="Buscar número o últimos 4 dígitos..." onkeypress="if(event.key==='Enter') buscarManual()">
@@ -398,7 +386,6 @@
             </div>
         </div>
 
-        <!-- RESULTS -->
         <div class="results-section" id="resultsSection" style="display:none;">
             <h3>📋 Resultados Encontrados</h3>
             <div id="resultsContainer"></div>
@@ -406,7 +393,6 @@
     </div>
 
     <script>
-        // ==================== VARIABLES ====================
         let sheetData = [];
         let headers = [];
         let recognition = null;
@@ -414,11 +400,9 @@
         let scriptUrl = '';
         let sheetName = 'ciegos';
         let debugVisible = true;
-        let activeColIndex = 0; // Índice de columna activa para el escáner
-        let scannerBuffer = '';
+        let activeColIndex = 0;
         let scannerTimer = null;
 
-        // ==================== DEBUG ====================
         function log(msg, type = 'info') {
             const body = document.getElementById('debugBody');
             const line = document.createElement('div');
@@ -438,7 +422,6 @@
             toggle.textContent = debugVisible ? '▼' : '▶';
         }
 
-        // ==================== INIT ====================
         window.onload = function() {
             log('Página cargada. Inicializando...', 'info');
             const savedUrl = localStorage.getItem('gs_scriptUrl');
@@ -447,7 +430,6 @@
             if (savedUrl) { document.getElementById('scriptUrl').value = savedUrl; log('URL cargada', 'ok'); }
             if (savedSheet) { document.getElementById('sheetName').value = savedSheet; }
             if (savedRange) { document.getElementById('rangeName').value = savedRange; }
-            
             initVoice();
             initScanner();
             log('Inicialización completa', 'ok');
@@ -460,77 +442,52 @@
         document.getElementById('sheetName').addEventListener('change', e => localStorage.setItem('gs_sheetName', e.target.value));
         document.getElementById('rangeName').addEventListener('change', e => localStorage.setItem('gs_rangeName', e.target.value));
 
-        // ==================== SCANNER ====================
         function initScanner() {
             const input = document.getElementById('scannerInput');
-            
-            // El escáner envía caracteres rápidos y termina con Enter
             input.addEventListener('keydown', function(e) {
-                // Si es Enter, procesar el código
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const code = input.value.trim();
-                    if (code) {
-                        processScan(code);
-                    }
+                    if (code) processScan(code);
                     input.value = '';
                     return;
                 }
-                
-                // Detectar entrada rápida típica de escáner (opcional: lógica avanzada)
                 clearTimeout(scannerTimer);
-                scannerTimer = setTimeout(() => {
-                    // Si pasó mucho tiempo sin Enter, probablemente es tipeo manual
-                    // Los escáneres envían todo en < 50ms por carácter
-                }, 100);
+                scannerTimer = setTimeout(() => {}, 100);
             });
-
-            // Mantener el foco siempre en el input del escáner
             input.addEventListener('blur', function() {
                 setTimeout(() => input.focus(), 50);
             });
-            
-            // Enfocar al cargar y al tocar cualquier parte
             input.focus();
             document.addEventListener('click', function(e) {
-                // No robar foco si se hace clic en un input o botón
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') {
-                    return;
-                }
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
                 setTimeout(() => input.focus(), 50);
             });
-            
-            log('Escáner inicializado - input listo para recibir códigos', 'ok');
+            log('Escáner inicializado', 'ok');
         }
 
         async function processScan(code) {
             log('📟 CÓDIGO ESCANEADO: ' + code, 'info');
-            
             if (!scriptUrl) {
-                showMsg('⚠️ Primero carga los datos (Configuración → Cargar Datos)', 'err');
-                log('Escaneo sin URL configurada', 'err');
+                showMsg('⚠️ Primero carga los datos', 'err');
                 return;
             }
-            
             if (headers.length === 0) {
                 showMsg('⚠️ Primero carga los datos', 'err');
                 return;
             }
-            
             const colName = headers[activeColIndex] || colLetra(activeColIndex);
             const colLetter = colLetra(activeColIndex);
-            
             showStatus('⏳ Registrando en ' + colLetter + '...', 'load');
-            log('Insertando en columna ' + colLetter + ' (índice ' + activeColIndex + ')', 'info');
+            log('Insertando en columna ' + colLetter, 'info');
 
             try {
                 const result = await jsonpRequest(scriptUrl, {
                     action: 'insertCode',
                     sheet: sheetName,
-                    col: activeColIndex + 1, // 1-based para Sheets
+                    col: activeColIndex + 1,
                     value: code
                 });
-                
                 log('Respuesta insert: ' + JSON.stringify(result), 'info');
 
                 if (result && result.success) {
@@ -540,8 +497,6 @@
                     showMsg('✅ Registrado en ' + result.cell + ': ' + code, 'ok');
                     showStatus('✅ Registrado en ' + result.cell, 'ok');
                     log('>>> ÉXITO: ' + result.message, 'ok');
-                    
-                    // Efecto visual
                     const section = document.getElementById('scannerSection');
                     section.classList.add('active');
                     setTimeout(() => section.classList.remove('active'), 800);
@@ -555,7 +510,6 @@
             }
         }
 
-        // ==================== NAVEGACIÓN COLUMNAS ====================
         function updateFieldDisplay() {
             const fieldNameEl = document.getElementById('fieldName');
             if (headers.length === 0) {
@@ -588,7 +542,6 @@
             document.getElementById('scannerInput').focus();
         }
 
-        // ==================== CONEXIÓN & DATOS ====================
         async function probarConexion() {
             const url = document.getElementById('scriptUrl').value.trim();
             if (!url) {
@@ -644,14 +597,28 @@
                 }
 
                 headers = sheetData[0];
-                activeColIndex = 0; // Resetear a primera columna
+                activeColIndex = 0;
                 updateFieldDisplay();
-                
-                log('Encabezados: ' + headers.join(' | '), 'ok');
-                log('Filas: ' + (sheetData.length - 1), 'ok');
 
-                showStatus('✅ ' + (sheetData.length - 1) + ' registros | Columna: ' + colLetra(0), 'ok');
-                showMsg('📊 ' + (sheetData.length - 1) + ' registros cargados', 'ok');
+                // ============================================================
+                // CAMBIO CLAVE: Contar CELDAS OCUPADAS en lugar de filas
+                // Rango A2:Z1000 → filas 2 a 1000 (índices 1 a 999 en array)
+                // ============================================================
+                let celdasOcupadas = 0;
+                for (let r = 1; r < sheetData.length; r++) {
+                    for (let c = 0; c < sheetData[r].length; c++) {
+                        const val = sheetData[r][c];
+                        if (val !== '' && val !== null && val !== undefined && String(val).trim() !== '') {
+                            celdasOcupadas++;
+                        }
+                    }
+                }
+
+                log('Encabezados: ' + headers.join(' | '), 'ok');
+                log('Celdas ocupadas contadas: ' + celdasOcupadas, 'ok');
+
+                showStatus('✅ ' + celdasOcupadas + ' celdas ocupadas (A:Z / 2:1000) | Columna: ' + colLetra(0), 'ok');
+                showMsg('📊 ' + celdasOcupadas + ' celdas con datos cargadas', 'ok');
 
             } catch (err) {
                 showStatus('❌ Error: ' + err.message, 'err');
@@ -702,7 +669,6 @@
             });
         }
 
-        // ==================== VOZ ====================
         function initVoice() {
             const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SR) {
@@ -749,7 +715,6 @@
             return sinEspacios.match(/\d+/g) || [];
         }
 
-        // ==================== BÚSQUEDA ====================
         function buscarManual() {
             const val = document.getElementById('manualSearch').value.trim();
             if (!val) { showMsg('⚠️ Ingresa un número', 'err'); return; }
@@ -825,7 +790,6 @@
             showStatus('✅ ' + res.length + ' resultado(s)', 'ok');
         }
 
-        // ==================== BORRAR CELDA ====================
         async function borrarCelda(filaNum, colIdx, cardIdx) {
             const btn = document.getElementById('btnf-' + cardIdx);
             btn.disabled = true;
@@ -864,7 +828,6 @@
             }
         }
 
-        // ==================== UI HELPERS ====================
         function showStatus(texto, tipo) {
             const bar = document.getElementById('statusBar');
             bar.textContent = texto;
