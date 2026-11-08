@@ -212,7 +212,11 @@
             font-weight: bold;
             color: #a0aec0;
             cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
+        .debug-header span { color: #f6ad55; }
         .debug-body {
             max-height: 180px;
             overflow-y: auto;
@@ -315,16 +319,16 @@
         <div class="config-panel">
             <h3>⚙️ Configuración</h3>
             <div class="input-group">
-                <label>🔗 URL del Registro:</label>
+                <label>🔗 URL del Script de Google Apps:</label>
                 <input type="text" id="scriptUrl" placeholder="https://script.google.com/macros/s/AKfycbxPzFoIqtH5T3-nnweRmn0lDoI82RR8CkBsTr_vNwIMSAUtr3Vi5rNcQ0srcFBMJrEhUw/exec">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
                 <div class="input-group">
-                    <label>📄 Nombre del Registro:</label>
+                    <label>📄 Nombre de la Hoja:</label>
                     <input type="text" id="sheetName" value="ciegos">
                 </div>
                 <div class="input-group">
-                    <label>📊 Rango (ANCHO):</label>
+                    <label>📊 Rango (columnas):</label>
                     <input type="text" id="rangeName" value="A:Z">
                 </div>
             </div>
@@ -334,11 +338,13 @@
             </div>
         </div>
 
+        <!-- DEBUG: inicia CERRADO -->
         <div class="debug-panel">
             <div class="debug-header" onclick="toggleDebug()">
-                🐛 Consola de Depuración <span id="debugToggle">▼</span>
+                <span>🐛 Consola de Depuración</span>
+                <span id="debugToggle">▶</span>
             </div>
-            <div class="debug-body" id="debugBody">
+            <div class="debug-body" id="debugBody" style="display:none;">
                 <div class="debug-line debug-info">Esperando acción...</div>
             </div>
         </div>
@@ -353,6 +359,7 @@
             </div>
 
             <div class="scanner-input-wrap">
+                <!-- inputmode="none" evita teclado virtual en móviles -->
                 <input 
                     type="text" 
                     id="scannerInput" 
@@ -362,6 +369,7 @@
                     autocorrect="off"
                     autocapitalize="off"
                     spellcheck="false"
+                    inputmode="none"
                 >
             </div>
             <div class="scanner-hint">📲 Cualquier escáner infrarrojo, bluetooth o USB funciona automáticamente</div>
@@ -399,7 +407,7 @@
         let isListening = false;
         let scriptUrl = '';
         let sheetName = 'ciegos';
-        let debugVisible = true;
+        let debugVisible = false; // ← ARREGLO 3: inicia CERRADO
         let activeColIndex = 0;
         let scannerTimer = null;
 
@@ -442,8 +450,10 @@
         document.getElementById('sheetName').addEventListener('change', e => localStorage.setItem('gs_sheetName', e.target.value));
         document.getElementById('rangeName').addEventListener('change', e => localStorage.setItem('gs_rangeName', e.target.value));
 
+        // ==================== ARREGLO 1 + 2: SCANNER ====================
         function initScanner() {
             const input = document.getElementById('scannerInput');
+
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
@@ -455,14 +465,32 @@
                 clearTimeout(scannerTimer);
                 scannerTimer = setTimeout(() => {}, 100);
             });
+
+            // ARREGLO 1: No robar foco si el usuario está en otro input/textarea/select
             input.addEventListener('blur', function() {
+                const active = document.activeElement;
+                if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) {
+                    return; // Dejar que el otro campo mantenga el foco
+                }
                 setTimeout(() => input.focus(), 50);
             });
+
             input.focus();
+
+            // ARREGLO 1: No recapturar foco si se hace clic en inputs, botones o paneles de config/búsqueda
             document.addEventListener('click', function(e) {
-                if (e.target.tagName === 'INPUT' || e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
+                const target = e.target;
+                // Si el clic fue en un input, button, textarea, select → no interferir
+                if (target.tagName === 'INPUT' || target.tagName === 'BUTTON' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
+                    return;
+                }
+                // Si el clic fue dentro del panel de config o búsqueda → no interferir
+                if (target.closest('.config-panel') || target.closest('.search-section')) {
+                    return;
+                }
                 setTimeout(() => input.focus(), 50);
             });
+
             log('Escáner inicializado', 'ok');
         }
 
@@ -600,10 +628,6 @@
                 activeColIndex = 0;
                 updateFieldDisplay();
 
-                // ============================================================
-                // CAMBIO CLAVE: Contar CELDAS OCUPADAS en lugar de filas
-                // Rango A2:Z1000 → filas 2 a 1000 (índices 1 a 999 en array)
-                // ============================================================
                 let celdasOcupadas = 0;
                 for (let r = 1; r < sheetData.length; r++) {
                     for (let c = 0; c < sheetData[r].length; c++) {
@@ -617,7 +641,7 @@
                 log('Encabezados: ' + headers.join(' | '), 'ok');
                 log('Celdas ocupadas contadas: ' + celdasOcupadas, 'ok');
 
-                showStatus('✅ ' + celdasOcupadas + ' cajas | Registradas ' + colLetra(), '');
+                showStatus('✅ ' + celdasOcupadas + ' celdas ocupadas (A:Z / 2:1000) | Columna: ' + colLetra(0), 'ok');
                 showMsg('📊 ' + celdasOcupadas + ' celdas con datos cargadas', 'ok');
 
             } catch (err) {
@@ -776,14 +800,15 @@
             }
             let html = '';
             res.forEach((r, i) => {
+                const filaMostrada = r.filaNum - 1;
                 html += '<div class="result-card" id="card-' + i + '">' +
                     '<div class="result-header"><div class="result-number">' + r.numero + '</div><div class="result-match">' + r.tipo + '</div></div>' +
                     '<div class="result-details">' +
                     '<div class="detail-box"><div class="label">Columna</div><div class="value">' + r.colNombre + '</div></div>' +
-                    '<div class="detail-box"><div class="label">Fila</div><div class="value">' + r.filaNum + '</div></div>' +
+                    '<div class="detail-box"><div class="label">Línea</div><div class="value">' + filaMostrada + '</div></div>' +
                     '</div>' +
                     '<button class="btn-found" id="btnf-' + i + '" onclick="borrarCelda(' + r.filaNum + ',' + r.colIdx + ',' + i + ')">' +
-                    '✅ ENCONTRADO - Borrar ' + r.colLetra + r.filaNum + '</button></div>';
+                    '✅ ENCONTRADO - Borrar Línea ' + filaMostrada + ' (' + r.colLetra + ')</button></div>';
             });
             container.innerHTML = html;
             section.style.display = 'block';
@@ -796,6 +821,7 @@
             btn.classList.add('deleting');
             btn.innerHTML = '<span class="spinner"></span> Borrando...';
             const cellRef = colLetra(colIdx) + filaNum;
+            const filaMostrada = filaNum - 1;
             
             try {
                 const result = await jsonpRequest(scriptUrl, {
@@ -816,14 +842,14 @@
                         }
                         cargarDatos();
                     }, 500);
-                    showMsg('✅ ' + cellRef + ' borrada', 'ok');
+                    showMsg('✅ Línea ' + filaMostrada + ' borrada', 'ok');
                 } else {
                     throw new Error(result.error || 'Error');
                 }
             } catch (err) {
                 btn.disabled = false;
                 btn.classList.remove('deleting');
-                btn.innerHTML = '✅ ENCONTRADO - Borrar ' + cellRef;
+                btn.innerHTML = '✅ ENCONTRADO - Borrar Línea ' + filaMostrada + ' (' + colLetra(colIdx) + ')';
                 showMsg('❌ ' + err.message, 'err');
             }
         }
